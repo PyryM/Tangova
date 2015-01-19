@@ -27,6 +27,9 @@ import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+
 public class Tangova extends CordovaPlugin  {
     private static final String LOG_TAG = "Tangova";
     protected CallbackContext tangoCallbackContext;
@@ -45,8 +48,8 @@ public class Tangova extends CordovaPlugin  {
 
         // only the gridulator really needs to be initted
         mGridulator = new TangoDepthGridulator(32, 32);
-        mGridulator.setGridParams(1.0, 1.0, // w, h
-                                  0.1, 2.0, // min depth, max depth
+        mGridulator.setGridParams(1.0f, 1.0f, // w, h
+                                  0.1f, 2.0f, // min depth, max depth
                                   true);    // clamp depth
 
         initTango();
@@ -187,7 +190,7 @@ public class Tangova extends CordovaPlugin  {
             }
 
             @Override
-            public void onXyzIjAvailable(TangoXyzIjData arg0) {
+            public void onXyzIjAvailable(TangoXyzIjData xyzIj) {
                 byte[] buffer = new byte[xyzIj.xyzCount * 3 * 4];
                 FileInputStream fileStream = new FileInputStream(
                          xyzIj.xyzParcelFileDescriptor.getFileDescriptor());
