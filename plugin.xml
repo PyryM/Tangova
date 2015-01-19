@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<plugin xmlns="http://cordova.apache.org/ns/plugins/1.0"
+        id="com.mtknn.tangova"
+        version="0.1.0">
+
+    <name>Tangova</name>
+
+    <keywords>cordova,tango,project tango,android</keywords>
+
+    <description>
+        Project Tango Cordova Plugin
+    </description>
+
+    <license>MIT</license>
+
+    <author>Pyry Matikainen</author>
+
+    <engines>
+        <engine name="cordova" version=">=3.0"/>
+    </engines>
+
+    <!-- android -->
+    <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="Tangova">
+                <param name="android-package" value="com.mtknn.tangova.Tangova"/>
+            </feature>
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/*">
+            <uses-permission android:name="android.permission.INTERNET"/>
+        </config-file>
+
+        <source-file src="src/Tangova.java" target-dir="src/com/mtknn/tangova" />
+        <source-file src="src/TangoUtils.java" target-dir="src/com/mtknn/tangova" />
+
+        <source-file src="tango_native_service_client_helperlib.jar" target-dir="libs" />
+
+        <js-module src="www/tangova.js" name="Tangova">
+            <clobbers target="Tangova"/>
+        </js-module>
+
+    </platform>
+</plugin>
