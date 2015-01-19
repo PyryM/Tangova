@@ -2,6 +2,8 @@ package com.mtknn.tangova;
 
 import android.util.Base64;
 import java.nio.FloatBuffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class TangoDepthGridulator {
 	protected byte[] mGridImage;
