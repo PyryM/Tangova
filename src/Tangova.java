@@ -11,6 +11,7 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 import android.annotation.SuppressLint;
+import java.nio.FloatBuffer;
 
 import android.widget.Toast;
 
@@ -34,8 +35,12 @@ import java.io.IOException;
 
 public class Tangova extends CordovaPlugin  {
     private static final String LOG_TAG = "Tangova";
+    private static final int DEPTHMODE_MAP = 1;
+    private static final int DEPTHMODE_PTS = 2;
+
     protected CallbackContext tangoCallbackContext;
     protected boolean wantsDepth = false;
+    protected int depthMode = DEPTHMODE_MAP;
 
     private Tango mTango;
     private TangoConfig mConfig;
@@ -81,7 +86,7 @@ public class Tangova extends CordovaPlugin  {
         } else if(action.equals("request_depth_frame")) {
             PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
             callbackContext.sendPluginResult(r);
-            requestTangoDepth();
+            requestTangoDepth(args);
             return true;
         } else if(action.equals("set_grid_params")) {
             PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
@@ -124,7 +129,7 @@ public class Tangova extends CordovaPlugin  {
         return ret;
     }
 
-    public JSONObject depthToJSON(TangoXyzIjData xyzIj) {
+    public JSONObject depthToJSON(TangoXyzIjData xyzIj, int depthmode) {
         byte[] buffer = new byte[xyzIj.xyzCount * 3 * 4];
         FileInputStream fileStream = new FileInputStream(
                  xyzIj.xyzParcelFileDescriptor.getFileDescriptor());
@@ -136,23 +141,32 @@ public class Tangova extends CordovaPlugin  {
             e.printStackTrace();
         }
 
-        String gridulated = mGridulator.computeB64GridString(buffer);
-
         JSONObject ret = new JSONObject();
         try {
-            ret.put("msgtype", "depthmap");
-            ret.put("rows", mGridulator.rows());
-            ret.put("cols", mGridulator.cols());
-            ret.put("b64data", gridulated);
-            ret.put("timestamp", xyzIj.timestamp);   
+            if(depthmode == DEPTHMODE_PTS) {
+                FloatBuffer rawFloats = mGridulator.decodeDepthBytes(buffer);
+                JSONArray pts = new JSONArray();
+                for(int i = 0; i < rawFloats.capacity(); ++i) {
+                    pts.put(rawFloats.get(i));
+                }
+                ret.put("msgtype", "depthpoints");
+                ret.put("coordinates", pts);
+            } else {
+                ret.put("msgtype", "depthmap");
+                ret.put("rows", mGridulator.rows());
+                ret.put("cols", mGridulator.cols());
+                ret.put("b64data", mGridulator.computeB64GridString(buffer));
+            }
+            ret.put("timestamp", xyzIj.timestamp);
         } catch (JSONException e) {
             Log.e(LOG_TAG, "depthToJSON error (how???)", e);
         }
         return ret;
     }
 
-    public void requestTangoDepth() {
+    public void requestTangoDepth(JSONArray args) {
     	wantsDepth = true;
+        depthMode = args.optInt(0, 1); // default to mode 1 (DEPTHMODE_MAP)
     }
 
     @Override
@@ -263,7 +277,7 @@ public class Tangova extends CordovaPlugin  {
             @Override
             public void onXyzIjAvailable(TangoXyzIjData xyzIj) {
                 if(wantsDepth) {
-                    sendData(depthToJSON(xyzIj));
+                    sendData(depthToJSON(xyzIj, depthMode));
                     wantsDepth = false;
                 }
             }
