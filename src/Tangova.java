@@ -50,7 +50,7 @@ public class Tangova extends CordovaPlugin  {
 
         // only the gridulator really needs to be initted
         mGridulator = new TangoDepthGridulator(32, 32);
-        mGridulator.setGridParams(1.0f, 1.0f, // w, h
+        mGridulator.setGridParams(0.625f, 0.3125f, // w, h
                                   0.1f, 2.0f, // min depth, max depth
                                   true);    // clamp depth
 
