@@ -35,7 +35,7 @@
         <source-file src="src/Tangova.java"              target-dir="src/com/mtknn/tangova" />
         <source-file src="src/TangoDepthGridulator.java" target-dir="src/com/mtknn/tangova" />
 
-        <source-file src="tango_native_service_client_helperlib.jar" target-dir="libs" />
+        <source-file src="libs/tango_native_service_client_helperlib.jar" target-dir="libs" />
 
         <js-module src="www/tangova.js" name="Tangova">
             <clobbers target="Tangova"/>

@@ -7,8 +7,10 @@ import android.view.View;
 import android.view.WindowManager;
 import android.content.Intent;
 import org.apache.cordova.*;
+import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
+import android.annotation.SuppressLint;
 
 import android.widget.Toast;
 
@@ -88,12 +90,16 @@ public class Tangova extends CordovaPlugin  {
 
     public JSONObject poseToJSON(TangoPoseData pose) {        
         JSONObject ret = new JSONObject();
-        ret.put("msgtype", "pose");
-        ret.put("translation", new JSONArray(pose.translation));
-        ret.put("rotation", new JSONArray(pose.rotation));
-        ret.put("timestamp", pose.timestamp);
-        ret.put("statusCode", pose.statusCode);
-        ret.put("confidence", pose.confidence);
+        try {
+            ret.put("msgtype", "pose");
+            ret.put("translation", new JSONArray(pose.translation));
+            ret.put("rotation", new JSONArray(pose.rotation));
+            ret.put("timestamp", pose.timestamp);
+            ret.put("statusCode", pose.statusCode);
+            ret.put("confidence", pose.confidence);
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "poseToJSON error (how???)",e);
+        }
         return ret;
     }
 
@@ -112,11 +118,15 @@ public class Tangova extends CordovaPlugin  {
         String gridulated = mGridulator.computeB64GridString(buffer);
 
         JSONObject ret = new JSONObject();
-        ret.put("msgtype", "depthmap");
-        ret.put("rows", mGridulator.rows());
-        ret.put("cols", mGridulator.cols());
-        ret.put("b64data", gridulated);
-        ret.put("timestamp", xyzIj.timestamp);
+        try {
+            ret.put("msgtype", "depthmap");
+            ret.put("rows", mGridulator.rows());
+            ret.put("cols", mGridulator.cols());
+            ret.put("b64data", gridulated);
+            ret.put("timestamp", xyzIj.timestamp);   
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "depthToJSON error (how???)", e);
+        }
         return ret;
     }
 
