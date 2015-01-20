@@ -83,9 +83,30 @@ public class Tangova extends CordovaPlugin  {
             callbackContext.sendPluginResult(r);
             requestTangoDepth();
             return true;
+        } else if(action.equals("set_grid_params")) {
+            PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
+            callbackContext.sendPluginResult(r);
+            setGridParams(args);
+            return true;
         }
 
         return super.execute(action, args, callbackContext);
+    }
+
+    public void setGridParams(JSONArray args) {
+        if(args.length() != 6) {
+            Log.e(LOG_TAG, "setGridParams expected 6 args, got " + args.length());
+            return;
+        }
+        int rows = args.optInt(0, 32);
+        int cols = args.optInt(1, 32);
+        float w = (float)(args.optDouble(2, 1.0));
+        float h = (float)(args.optDouble(3, 1.0));
+        float minDepth = (float)(args.optDouble(4, 0.1));
+        float maxDepth = (float)(args.optDouble(5, 1.0));
+
+        mGridulator = new TangoDepthGridulator(rows, cols);
+        mGridulator.setGridParams(w, h, minDepth, maxDepth, true);
     }
 
     public JSONObject poseToJSON(TangoPoseData pose) {        
@@ -185,6 +206,17 @@ public class Tangova extends CordovaPlugin  {
     }
 
     public void startTango(JSONArray args) {
+        boolean useDepth = args.optBoolean(0, false);
+        Log.d(LOG_TAG, "Starting tango, depth?: " + useDepth);
+
+        if(mConfig != null) {
+            try {
+                mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_DEPTH, useDepth);
+            } catch(TangoErrorException e) {
+                Log.e(LOG_TAG, "startTango config error: ", e);
+            }
+        }
+
         if (!mIsTangoServiceConnected) {
             this.cordova.startActivityForResult((CordovaPlugin) this,
                     Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_MOTION_TRACKING),
