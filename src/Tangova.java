@@ -86,7 +86,41 @@ public class Tangova extends CordovaPlugin  {
         return super.execute(action, args, callbackContext);
     }
 
-    public void requestDepth() {
+    public JSONObject poseToJSON(TangoPoseData pose) {        
+        JSONObject ret = new JSONObject();
+        ret.put("msgtype", "pose");
+        ret.put("translation", new JSONArray(pose.translation));
+        ret.put("rotation", new JSONArray(pose.rotation));
+        ret.put("timestamp", pose.timestamp);
+        ret.put("statusCode", pose.statusCode);
+        ret.put("confidence", pose.confidence);
+        return ret;
+    }
+
+    public JSONObject depthToJSON(TangoXyzIjData xyzIj) {
+        byte[] buffer = new byte[xyzIj.xyzCount * 3 * 4];
+        FileInputStream fileStream = new FileInputStream(
+                 xyzIj.xyzParcelFileDescriptor.getFileDescriptor());
+        try {
+            fileStream.read(buffer,
+                    xyzIj.xyzParcelFileDescriptorOffset, buffer.length);
+            fileStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String gridulated = mGridulator.computeB64GridString(buffer);
+
+        JSONObject ret = new JSONObject();
+        ret.put("msgtype", "depthmap");
+        ret.put("rows", mGridulator.rows());
+        ret.put("cols", mGridulator.cols());
+        ret.put("b64data", gridulated);
+        ret.put("timestamp", xyzIj.timestamp);
+        return ret;
+    }
+
+    public void requestTangoDepth() {
     	wantsDepth = true;
     }
 
@@ -161,6 +195,13 @@ public class Tangova extends CordovaPlugin  {
         }
     }
 
+    private void sendData(JSONObject data) {
+        // Success return object
+        PluginResult result = new PluginResult(PluginResult.Status.OK, data);
+        result.setKeepCallback(true);
+        tangoCallbackContext.sendPluginResult(result);
+    }
+
     private void setTangoListeners() {
         // Select coordinate frame pairs
         ArrayList<TangoCoordinateFramePair> framePairs = new ArrayList<TangoCoordinateFramePair>();
@@ -174,40 +215,13 @@ public class Tangova extends CordovaPlugin  {
             @SuppressLint("DefaultLocale")
             @Override
             public void onPoseAvailable(TangoPoseData pose) {
-                // Format Translation and Rotation data
-                final String translationMsg = String.format(sTranslationFormat,
-                        pose.translation[0], pose.translation[1],
-                        pose.translation[2]);
-                final String rotationMsg = String.format(sRotationFormat,
-                        pose.rotation[0], pose.rotation[1], pose.rotation[2],
-                        pose.rotation[3]);
-
-                // Output to LogCat
-                String logMsg = "[" + translationMsg + "," + rotationMsg + "]";
-                //Log.i(LOG_TAG, logMsg);
-
-                // TODO: Send this data back
+                sendData(poseToJSON(pose));
             }
 
             @Override
             public void onXyzIjAvailable(TangoXyzIjData xyzIj) {
-                byte[] buffer = new byte[xyzIj.xyzCount * 3 * 4];
-                FileInputStream fileStream = new FileInputStream(
-                         xyzIj.xyzParcelFileDescriptor.getFileDescriptor());
-                try {
-                    fileStream.read(buffer,
-                            xyzIj.xyzParcelFileDescriptorOffset, buffer.length);
-                    fileStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                
                 if(wantsDepth) {
-                    String gridulated = mGridulator.computeB64GridString(buffer);
-                    // TODO: send this data back
-                    // mWebInterface.setTangoDepthData(gridulated, 
-                    //                                 mGridulator.rows(), 
-                    //                                 mGridulator.cols());
+                    sendData(depthToJSON(xyzIj));
                     wantsDepth = false;
                 }
             }
