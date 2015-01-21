@@ -76,26 +76,54 @@ public class Tangova extends CordovaPlugin  {
         	tangoCallbackContext = callbackContext;
         	PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
             r.setKeepCallback(true);
+            callbackContext.sendPluginResult(r);
             startTango(args);
             return true;
         } else if(action.equals("stop_tango")) {
-            PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
-            callbackContext.sendPluginResult(r);
+            callbackContext.success();
             stopTango();
             return true;
         } else if(action.equals("request_depth_frame")) {
-            PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
-            callbackContext.sendPluginResult(r);
+            callbackContext.success();
             requestTangoDepth(args);
             return true;
         } else if(action.equals("set_grid_params")) {
-            PluginResult r = new PluginResult(PluginResult.Status.NO_RESULT);
-            callbackContext.sendPluginResult(r);
+            callbackContext.success();
             setGridParams(args);
             return true;
+        } else if(action.equals("get_adf_list")) {
+            getADFList(callbackContext);
+            return true;
+        } else if(action.equals("load_adf")) {
+            loadADF(args, callbackContext);
+            return true;            
         }
 
         return super.execute(action, args, callbackContext);
+    }
+
+    public void loadADF(JSONArray args, CallbackContext callback) {
+        if(mIsTangoServiceConnected) {
+            callback.error("Cannot load ADF while Tango is active. stopTango() first.");
+            return;
+        }
+
+        String adfName = args.optString(0, "");
+        if(adfName.equals("")) {
+            // does this actually clear the ADF?
+            mConfig.putString(TangoConfig.KEY_STRING_AREADESCRIPTION, "");
+        } else {
+            mConfig.putString(TangoConfig.KEY_STRING_AREADESCRIPTION, adfName);
+        }
+        callback.success();
+    }
+
+    public void getADFList(CallbackContext callback) {
+        ArrayList<String> fullUUIDList = new ArrayList<String>();
+        fullUUIDList = mTango.listAreaDescriptions();
+        JSONArray ret = new JSONArray(fullUUIDList);
+        PluginResult r = new PluginResult(PluginResult.Status.OK, ret);
+        callback.sendPluginResult(r);
     }
 
     public void setGridParams(JSONArray args) {
@@ -114,7 +142,7 @@ public class Tangova extends CordovaPlugin  {
         mGridulator.setGridParams(w, h, minDepth, maxDepth, true);
     }
 
-    public JSONObject poseToJSON(TangoPoseData pose) {        
+    public JSONObject poseToJSON(TangoPoseData pose, String frame) {        
         JSONObject ret = new JSONObject();
         try {
             ret.put("msgtype", "pose");
@@ -123,6 +151,7 @@ public class Tangova extends CordovaPlugin  {
             ret.put("timestamp", pose.timestamp);
             ret.put("statusCode", pose.statusCode);
             ret.put("confidence", pose.confidence);
+            ret.put("targetFrame", frame);
         } catch (JSONException e) {
             Log.e(LOG_TAG, "poseToJSON error (how???)",e);
         }
@@ -262,8 +291,11 @@ public class Tangova extends CordovaPlugin  {
         // Select coordinate frame pairs
         ArrayList<TangoCoordinateFramePair> framePairs = new ArrayList<TangoCoordinateFramePair>();
         framePairs.add(new TangoCoordinateFramePair(
-                TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE,
+                TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
                 TangoPoseData.COORDINATE_FRAME_DEVICE));
+        framePairs.add(new TangoCoordinateFramePair(
+                TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
+                TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE));
 
         // Add a listener for Tango pose data
         mTango.connectListener(framePairs, new OnTangoUpdateListener() {
@@ -271,7 +303,13 @@ public class Tangova extends CordovaPlugin  {
             @SuppressLint("DefaultLocale")
             @Override
             public void onPoseAvailable(TangoPoseData pose) {
-                sendData(poseToJSON(pose));
+                String targetFrame = "UNKNOWN";
+                if(pose.targetFrame == TangoPoseData.COORDINATE_FRAME_DEVICE) {
+                    targetFrame = "DEVICE";
+                } else if(pose.targetFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE) {
+                    targetFrame = "START_OF_SERVICE";
+                }
+                sendData(poseToJSON(pose, targetFrame));
             }
 
             @Override

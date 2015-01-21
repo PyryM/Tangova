@@ -78,4 +78,24 @@ Tangova.prototype.setDepthParams = function(options) {
     exec(successCallback, errorCallback, 'Tangova', 'set_grid_params', gridArgs);
 };
 
+/**
+ * Get a list of ADF files
+ */
+Tangova.prototype.getADFList = function (successCallback, errorCallback) {
+    exec(successCallback, errorCallback, 'Tangova', 'get_adf_list', []);
+}
+
+/**
+ * Load an ADF
+ */
+Tangova.prototype.loadADF = function (filename, successCallback, errorCallback) {
+    if (errorCallback == null) {
+        errorCallback = function (e) {console.log(e)};
+    }
+    if (successCallback == null) {
+        successCallback = function (e) {console.log(e)};
+    }
+    exec(successCallback, errorCallback, 'Tangova', 'load_adf', [filename]);
+}
+
 module.exports = new Tangova();
