@@ -325,6 +325,11 @@ public class Tangova extends CordovaPlugin  {
                 // Ignoring TangoEvents
             }
 
+            @Override
+            public void onFrameAvailable(int cameraId) {
+                // Ignoring camera frames at the moment
+            }
+
         });
     }
 }
