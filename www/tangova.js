@@ -8,10 +8,19 @@ var exec = require("cordova/exec");
 function Tangova() { }
 
 /**
- * Requests tango permissions (must be called first!)
+ * Requests tango permission: 0 = motion, 1 = ADF
  */
-Tangova.prototype.requestPermissions = function(successCallback, errorCallback, ptype) {
+Tangova.prototype.requestPermission = function(successCallback, errorCallback, ptype) {
     exec(successCallback, errorCallback, 'Tangova', 'request_permissions', [ptype]);
+}
+
+/**
+ * Convenience function to request both motion and ADF with one call
+ */
+Tangova.prototype.requestAllPermissions = function(successCallback, errorCallback) {
+    Tangova.requestPermission(function(v) {
+        Tangova.requestPermission(successCallback, errorCallback, 1);
+    }, errorCallback, 0);    
 }
 
 /**

@@ -29,6 +29,7 @@ import com.google.atap.tangoservice.TangoEvent;
 import com.google.atap.tangoservice.TangoOutOfDateException;
 import com.google.atap.tangoservice.TangoPoseData;
 import com.google.atap.tangoservice.TangoXyzIjData;
+import com.google.atap.tangoservice.TangoAreaDescriptionMetaData;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -115,8 +116,8 @@ public class Tangova extends CordovaPlugin  {
             callback.error("Cannot load ADF while Tango is active. stopTango() first.");
             return;
         }
-        if(!mHavePermissions) {
-            callback.error("Need to request permissions first!");
+        if(!mHaveADFPermission) {
+            callback.error("Need to request ADF permission first!");
             return;
         }
 
@@ -145,12 +146,28 @@ public class Tangova extends CordovaPlugin  {
             Log.d(LOG_TAG, "getADFList error: " + e.toString());
             //callback.error(e.toString());
         }
-        Log.d(LOG_TAG, "Succeeded init!");
 
-        JSONArray ret = new JSONArray(adfList);
+        JSONArray ret = new JSONArray();
+        for(int i = 0; i < adfList.size(); ++i) {
+            ret.put(uuidToJSON(adfList.get(i)));
+        }
         PluginResult r = new PluginResult(PluginResult.Status.OK, ret);
         callback.sendPluginResult(r);
-        Log.d(LOG_TAG, "Sent: " + ret.toString());
+    }
+
+    public JSONObject uuidToJSON(String uuid) {
+        TangoAreaDescriptionMetaData md;
+        md = mTango.loadAreaDescriptionMetaData(uuid);
+        String name = new String(md.get(TangoAreaDescriptionMetaData.KEY_NAME));
+
+        JSONObject ret = new JSONObject();
+        try {
+            ret.put("uuid", uuid);
+            ret.put("name", name);
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "Java what are you doing how is this possible", e);
+        }
+        return ret;
     }
 
     public void setGridParams(JSONArray args) {
@@ -362,7 +379,7 @@ public class Tangova extends CordovaPlugin  {
                 TangoPoseData.COORDINATE_FRAME_DEVICE));
         framePairs.add(new TangoCoordinateFramePair(
                 TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
-                TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE));
+                TangoPoseData.COORDINATE_FRAME_DEVICE));
 
         // Add a listener for Tango pose data
         mTango.connectListener(framePairs, new OnTangoUpdateListener() {
