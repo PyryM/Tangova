@@ -195,7 +195,7 @@ public class Tangova extends CordovaPlugin  {
             ret.put("timestamp", pose.timestamp);
             ret.put("statusCode", pose.statusCode);
             ret.put("confidence", pose.confidence);
-            ret.put("targetFrame", frame);
+            ret.put("baseFrame", frame);
         } catch (JSONException e) {
             Log.e(LOG_TAG, "poseToJSON error (how???)",e);
         }
@@ -387,13 +387,13 @@ public class Tangova extends CordovaPlugin  {
             @SuppressLint("DefaultLocale")
             @Override
             public void onPoseAvailable(TangoPoseData pose) {
-                String targetFrame = "UNKNOWN";
-                if(pose.targetFrame == TangoPoseData.COORDINATE_FRAME_DEVICE) {
-                    targetFrame = "DEVICE";
-                } else if(pose.targetFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE) {
-                    targetFrame = "START_OF_SERVICE";
+                String srcFrame = "UNKNOWN";
+                if(pose.baseFrame == TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION) {
+                    srcFrame = "AREA_DESCRIPTION";
+                } else if(pose.baseFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE) {
+                    srcFrame = "START_OF_SERVICE";
                 }
-                sendData(poseToJSON(pose, targetFrame));
+                sendData(poseToJSON(pose, srcFrame));
             }
 
             @Override
