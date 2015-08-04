@@ -8,6 +8,13 @@ var exec = require("cordova/exec");
 function Tangova() { }
 
 /**
+ * Requests tango permissions (must be called first!)
+ */
+Tangova.prototype.requestPermissions = function(successCallback, errorCallback, ptype) {
+    exec(successCallback, errorCallback, 'Tangova', 'request_permissions', [ptype]);
+}
+
+/**
  * Starts the tango motion tracking and depth camera
  */
 Tangova.prototype.startTango = function (successCallback, errorCallback, useDepth) {

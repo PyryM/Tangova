@@ -39,6 +39,10 @@ public class Tangova extends CordovaPlugin  {
     private static final int DEPTHMODE_PTS = 2;
 
     protected CallbackContext tangoCallbackContext;
+    protected CallbackContext tangoPermissionCallback;
+    protected boolean mHaveMotionPermission = false;
+    protected boolean mHaveADFPermission = false;
+    protected boolean mHavePermissions = false;
     protected boolean wantsDepth = false;
     protected int depthMode = DEPTHMODE_MAP;
 
@@ -47,6 +51,7 @@ public class Tangova extends CordovaPlugin  {
     private boolean mIsTangoServiceConnected = false;
     private Activity mActivity;
     private TangoDepthGridulator mGridulator;
+    private ArrayList<String> mFullUUIDList;
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
@@ -97,6 +102,9 @@ public class Tangova extends CordovaPlugin  {
         } else if(action.equals("load_adf")) {
             loadADF(args, callbackContext);
             return true;            
+        } else if(action.equals("request_permissions")) {
+            requestPermissions(args, callbackContext);
+            return true;
         }
 
         return super.execute(action, args, callbackContext);
@@ -105,6 +113,10 @@ public class Tangova extends CordovaPlugin  {
     public void loadADF(JSONArray args, CallbackContext callback) {
         if(mIsTangoServiceConnected) {
             callback.error("Cannot load ADF while Tango is active. stopTango() first.");
+            return;
+        }
+        if(!mHavePermissions) {
+            callback.error("Need to request permissions first!");
             return;
         }
 
@@ -119,11 +131,26 @@ public class Tangova extends CordovaPlugin  {
     }
 
     public void getADFList(CallbackContext callback) {
-        ArrayList<String> fullUUIDList = new ArrayList<String>();
-        fullUUIDList = mTango.listAreaDescriptions();
-        JSONArray ret = new JSONArray(fullUUIDList);
+        if(!mHavePermissions) {
+            callback.error("Need to acquire permissions first!");
+            return;
+        }
+
+        // Try getting the list of ADFs
+        ArrayList<String> adfList = new ArrayList<String>();
+        try {
+            Log.d(LOG_TAG, "Going to try getting the ADF list...");
+            adfList = mTango.listAreaDescriptions();
+        } catch (TangoErrorException e) {
+            Log.d(LOG_TAG, "getADFList error: " + e.toString());
+            //callback.error(e.toString());
+        }
+        Log.d(LOG_TAG, "Succeeded init!");
+
+        JSONArray ret = new JSONArray(adfList);
         PluginResult r = new PluginResult(PluginResult.Status.OK, ret);
         callback.sendPluginResult(r);
+        Log.d(LOG_TAG, "Sent: " + ret.toString());
     }
 
     public void setGridParams(JSONArray args) {
@@ -201,32 +228,31 @@ public class Tangova extends CordovaPlugin  {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // Check which request we're responding to
-        if (requestCode == Tango.TANGO_INTENT_ACTIVITYCODE) {
+        Log.d(LOG_TAG, "Got activity result " + requestCode);
+        Log.d(LOG_TAG, "Activity result code: " + resultCode);
+        if (requestCode == 1723 || requestCode == 1724) {
             // Make sure the request was successful
             if (resultCode == Activity.RESULT_CANCELED) {
                 Toast.makeText(this.cordova.getActivity(),
-                        "This app requires Motion Tracking permission!",
+                        "This app requires tango permissions!",
                         Toast.LENGTH_LONG).show();
+                String ptype = "MOTION";
+                if(requestCode == 1724) {
+                    ptype = "ADF";
+                }
+                tangoPermissionCallback.error("User didn't accept permission " + ptype);
                 return;
             }
-            try {
-                setTangoListeners();
-            } catch (TangoErrorException e) {
-                Toast.makeText(this.cordova.getActivity(), "Tango Error! Restart the app!",
-                        Toast.LENGTH_SHORT).show();
+            if(requestCode == 1723) {
+                mHaveMotionPermission = true;
             }
-            try {
-                mTango.connect(mConfig);
-                mIsTangoServiceConnected = true;
-            } catch (TangoOutOfDateException e) {
-                Toast.makeText(this.cordova.getActivity(),
-                        "Tango Service out of date!", Toast.LENGTH_SHORT)
-                        .show();
-            } catch (TangoErrorException e) {
-                Toast.makeText(this.cordova.getActivity(),
-                        "Tango Error! Restart the app!", Toast.LENGTH_SHORT)
-                        .show();
+            if(requestCode == 1724) {
+                mHaveADFPermission = true;
             }
+            if(mHaveMotionPermission && mHaveADFPermission) {
+                mHavePermissions = true;
+            }
+            tangoPermissionCallback.success();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -252,6 +278,17 @@ public class Tangova extends CordovaPlugin  {
         boolean useDepth = args.optBoolean(0, false);
         Log.d(LOG_TAG, "Starting tango, depth?: " + useDepth);
 
+        if(!mHavePermissions) {
+            Log.e(LOG_TAG, "Permissions not acquired yet!");
+            tangoCallbackContext.error("Error: need to acquire permissions first!");
+            return;
+        }
+
+        if(mIsTangoServiceConnected) {
+            Log.w(LOG_TAG, "Can't start tango a second time! Stop it first.");
+            return;
+        }
+
         if(mConfig != null) {
             try {
                 mConfig.putBoolean(TangoConfig.KEY_BOOLEAN_DEPTH, useDepth);
@@ -260,10 +297,40 @@ public class Tangova extends CordovaPlugin  {
             }
         }
 
-        if (!mIsTangoServiceConnected) {
+        try {
+            setTangoListeners();
+        } catch (TangoErrorException e) {
+            Toast.makeText(this.cordova.getActivity(), "Tango Error! Restart the app!",
+                    Toast.LENGTH_SHORT).show();
+        }
+        try {
+            mTango.connect(mConfig);
+            mIsTangoServiceConnected = true;
+        } catch (TangoOutOfDateException e) {
+            Toast.makeText(this.cordova.getActivity(),
+                    "Tango Service out of date!", Toast.LENGTH_SHORT)
+                    .show();
+        } catch (TangoErrorException e) {
+            Toast.makeText(this.cordova.getActivity(),
+                    "Tango Error! Restart the app!", Toast.LENGTH_SHORT)
+                    .show();
+        }
+    }
+
+    public void requestPermissions(JSONArray args, CallbackContext context) {
+        tangoPermissionCallback = context;
+        int ptype = args.optInt(0, 0);
+
+        if(ptype == 0) {
+            Log.d(LOG_TAG, "Requesting motion tracking permission");
             this.cordova.startActivityForResult((CordovaPlugin) this,
                     Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_MOTION_TRACKING),
-                    Tango.TANGO_INTENT_ACTIVITYCODE);
+                    1723);            
+        } else {
+            Log.d(LOG_TAG, "Requesting ADF permission");
+            this.cordova.startActivityForResult((CordovaPlugin) this,
+                    Tango.getRequestPermissionIntent(Tango.PERMISSIONTYPE_ADF_LOAD_SAVE),
+                    1724);
         }
     }
 
@@ -281,7 +348,6 @@ public class Tangova extends CordovaPlugin  {
     }
 
     private void sendData(JSONObject data) {
-        // Success return object
         PluginResult result = new PluginResult(PluginResult.Status.OK, data);
         result.setKeepCallback(true);
         tangoCallbackContext.sendPluginResult(result);
@@ -291,7 +357,8 @@ public class Tangova extends CordovaPlugin  {
         // Select coordinate frame pairs
         ArrayList<TangoCoordinateFramePair> framePairs = new ArrayList<TangoCoordinateFramePair>();
         framePairs.add(new TangoCoordinateFramePair(
-                TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
+                //TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
+                TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE,
                 TangoPoseData.COORDINATE_FRAME_DEVICE));
         framePairs.add(new TangoCoordinateFramePair(
                 TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION,
