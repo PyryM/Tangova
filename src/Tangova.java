@@ -12,6 +12,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import android.annotation.SuppressLint;
 import java.nio.FloatBuffer;
+import java.lang.System;
 
 import android.widget.Toast;
 
@@ -46,6 +47,8 @@ public class Tangova extends CordovaPlugin  {
     protected boolean mHavePermissions = false;
     protected boolean wantsDepth = false;
     protected int depthMode = DEPTHMODE_MAP;
+    protected long minPoseCallbackDeltaNanoSeconds = 30000000;
+    protected long[] lastPoseTime = new long[2];
 
     private Tango mTango;
     private TangoConfig mConfig;
@@ -65,6 +68,8 @@ public class Tangova extends CordovaPlugin  {
                                   0.1f, 2.0f, // min depth, max depth
                                   true);    // clamp depth
 
+        lastPoseTime[0] = System.nanoTime();
+        lastPoseTime[1] = System.nanoTime();
         initTango();
     }
 
@@ -106,9 +111,20 @@ public class Tangova extends CordovaPlugin  {
         } else if(action.equals("request_permissions")) {
             requestPermissions(args, callbackContext);
             return true;
+        } else if(action.equals("set_max_update_rate")) {
+            setMaxUpdateRate(args, callbackContext);
+            return true;
         }
 
         return super.execute(action, args, callbackContext);
+    }
+
+    public void setMaxUpdateRate(JSONArray args, CallbackContext callback) {
+        double updateHz = args.optDouble(0, 30.0);
+        double updateMS = 1000.0 / updateHz;
+        minPoseCallbackDeltaNanoSeconds = (long)(updateMS * 1.0e6);
+        Log.d(LOG_TAG, "Update ns: " + minPoseCallbackDeltaNanoSeconds);
+        callback.success();
     }
 
     public void loadADF(JSONArray args, CallbackContext callback) {
@@ -387,12 +403,26 @@ public class Tangova extends CordovaPlugin  {
             @SuppressLint("DefaultLocale")
             @Override
             public void onPoseAvailable(TangoPoseData pose) {
+                int frameTimerIndex = 0;
                 String srcFrame = "UNKNOWN";
                 if(pose.baseFrame == TangoPoseData.COORDINATE_FRAME_AREA_DESCRIPTION) {
                     srcFrame = "AREA_DESCRIPTION";
+                    frameTimerIndex = 0;
                 } else if(pose.baseFrame == TangoPoseData.COORDINATE_FRAME_START_OF_SERVICE) {
                     srcFrame = "START_OF_SERVICE";
+                    frameTimerIndex = 1;
                 }
+
+                // if minPoseCallbackDeltaNanoSeconds hasn't elapsed
+                // since the last pose was received, then don't call
+                // the callback
+                long nowtime = System.nanoTime();
+                long dt = nowtime - lastPoseTime[frameTimerIndex];
+                if(dt < minPoseCallbackDeltaNanoSeconds) {
+                    return;
+                }
+                lastPoseTime[frameTimerIndex] = nowtime;
+
                 sendData(poseToJSON(pose, srcFrame));
             }
 

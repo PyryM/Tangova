@@ -96,6 +96,19 @@ Tangova.prototype.setDepthParams = function(options) {
 };
 
 /**
+ * Set the maximum rate of pose updates in Hz (fps)
+ */
+Tangova.prototype.setMaxUpdateRate = function(hz) {
+    var errorCallback = function (e) {
+        console.log(e);
+    };
+    var successCallback = function(e) {
+        console.log(e);
+    };
+    exec(successCallback, errorCallback, 'Tangova', 'set_max_update_rate', [hz]);
+};
+
+/**
  * Get a list of ADF files
  */
 Tangova.prototype.getADFList = function (successCallback, errorCallback) {
