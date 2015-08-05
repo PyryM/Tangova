@@ -14,6 +14,9 @@ Tangova.start(tangoCallback, onErrorCallback, adfName);
 // to stop the motion tracking
 // note: these callbacks won't be called at the moment (but the function does work)
 Tangova.stopTango(successCallback, errorCallback);
+
+// to set the maximum pose update rate (starts at 30hz)
+Tangova.setMaxUpdateRate(15.5); // 15.5 hz
 ```
 
 The callback passed into start will receive pose updates:
