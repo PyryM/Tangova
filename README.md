@@ -3,6 +3,7 @@ Project Tango plugin for Cordova.
 
 Installation:
 ```cordova plugin add https://github.com/PyryM/Tangova.git```
+(For general installation of Cordova+Crosswalk [see this documentation](https://crosswalk-project.org/documentation/cordova/cordova_4.html))
 
 Usage:
 ```javascript
